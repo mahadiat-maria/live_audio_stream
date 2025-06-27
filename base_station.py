@@ -12,7 +12,7 @@ class BaseStationAudio:
         rospy.loginfo("Base Station Audio Node Initialized.")
 
         # Audio Configuration
-        self.CHUNK = 512
+        self.CHUNK = 1024
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
         self.RATE = 44100
@@ -25,7 +25,7 @@ class BaseStationAudio:
         self.output_stream = None
 
         # ROS Publisher & Subscriber
-        self.audio_pub = rospy.Publisher('/base_station/audio', String, queue_size=5)
+        self.audio_pub = rospy.Publisher('/base_station/audio', String, queue_size=10)
         rospy.Subscriber('/rover/audio', String, self.handle_rover_audio)
         
 
@@ -39,7 +39,7 @@ class BaseStationAudio:
             rospy.loginfo("Output audio stream opened successfully.")
             return True
         except Exception as e:
-            print(f"Error initializing audio streams: {e}")
+            rospy.logerr(f"Error initializing audio streams: {e}")
             return False
         
 
@@ -83,7 +83,7 @@ class BaseStationAudio:
 
         rospy.spin()  # Keep the node running
 
-        def shutdown_hook(self):
+    def shutdown_hook(self):
         
         rospy.loginfo("Shutting down Base Station Audio System...")
         if self.input_stream:
