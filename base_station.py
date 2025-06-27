@@ -29,6 +29,7 @@ class BaseStationAudio:
         rospy.Subscriber('/rover/audio', String, self.handle_rover_audio)
         
 
+    #Initializes and opens PyAudio input and output streams
     def start_audio_streams(self):
         try:
             self.input_stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE,
@@ -43,8 +44,8 @@ class BaseStationAudio:
             return False
         
 
+    #Capture audio and publish to ROS topic
     def audio_capture_thread(self):
-        """Capture audio and publish to ROS topic"""
         rospy.loginfo("Audio capture thread started.")
         while not rospy.is_shutdown():
             try:
@@ -56,8 +57,8 @@ class BaseStationAudio:
                 rospy.logerr(f"Error capturing audio: {e}")
                 break
 
+    #Handle audio from base station
     def handle_rover_audio(self, data):
-        """Handle audio from rover"""
         try:
             audio_data = base64.b64decode(data.data)
             if self.output_stream:
@@ -65,8 +66,8 @@ class BaseStationAudio:
         except Exception as e:
            rospy.logerr(f"Error playing rover audio: {e}")
 
+    #Start the rover audio system
     def start(self):
-        """Start the base station audio system"""
         
         rospy.loginfo("Starting Base Station Audio System...")
         if not self.start_audio_streams():
@@ -83,6 +84,7 @@ class BaseStationAudio:
 
         rospy.spin()  # Keep the node running
 
+    #Cleanup when shutting down
     def shutdown_hook(self):
         
         rospy.loginfo("Shutting down Base Station Audio System...")
