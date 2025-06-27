@@ -3,12 +3,16 @@ from std_msgs.msg import String
 import pyaudio
 import base64
 import threading
-import time
 
 class BaseStationAudio:
     def __init__(self):
+
+        # ROS setup: Initialize the ROS node 
+        rospy.init_node('base_station_audio', anonymous=True)
+        rospy.loginfo("Base Station Audio Node Initialized.")
+
         # Audio Configuration
-        self.CHUNK = 1024
+        self.CHUNK = 512
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
         self.RATE = 44100
@@ -21,33 +25,36 @@ class BaseStationAudio:
         self.output_stream = None
 
         # ROS Publisher & Subscriber
-        self.audio_pub = rospy.Publisher('/base_station/audio', String, queue_size=10)
+        self.audio_pub = rospy.Publisher('/base_station/audio', String, queue_size=5)
         rospy.Subscriber('/rover/audio', String, self.handle_rover_audio)
-
-        # ROS setup
-        rospy.init_node('base_station_audio', anonymous=True)
+        
 
     def start_audio_streams(self):
         try:
             self.input_stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE,
                                                  input=True, frames_per_buffer=self.CHUNK)
+            rospy.loginfo("Input audio stream opened successfully.")
             self.output_stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE,
                                                   output=True, frames_per_buffer=self.CHUNK)
+            rospy.loginfo("Output audio stream opened successfully.")
+            return True
         except Exception as e:
             print(f"Error initializing audio streams: {e}")
             return False
-        return True
+        
 
     def audio_capture_thread(self):
         """Capture audio and publish to ROS topic"""
+        rospy.loginfo("Audio capture thread started.")
         while not rospy.is_shutdown():
             try:
-                data = self.input_stream.read(self.CHUNK, exception_on_overflow=False)
-                audio_b64 = base64.b64encode(data).decode('utf-8')
-                self.audio_pub.publish(audio_b64)
-                time.sleep(0.1)
+                if self.input_stream:
+                    data = self.input_stream.read(self.CHUNK, exception_on_overflow=False)
+                    audio_b64 = base64.b64encode(data).decode('utf-8')
+                    self.audio_pub.publish(audio_b64)
             except Exception as e:
-                print(f"Error capturing audio: {e}")
+                rospy.logerr(f"Error capturing audio: {e}")
+                break
 
     def handle_rover_audio(self, data):
         """Handle audio from rover"""
@@ -56,22 +63,45 @@ class BaseStationAudio:
             if self.output_stream:
                 self.output_stream.write(audio_data)
         except Exception as e:
-            print(f"Error playing rover audio: {e}")
+           rospy.logerr(f"Error playing rover audio: {e}")
 
     def start(self):
         """Start the base station audio system"""
-        print("Starting Base Station Audio System...")
+        
+        rospy.loginfo("Starting Base Station Audio System...")
         if not self.start_audio_streams():
-            print("Failed to start audio streams")
+            rospy.logerr("Failed to start audio streams. Exiting.")
             return
 
         # Start audio capture thread
         capture_thread = threading.Thread(target=self.audio_capture_thread)
         capture_thread.daemon = True
         capture_thread.start()
+        rospy.loginfo("Audio capture thread launched.")
+
+        rospy.on_shutdown(self.shutdown_hook) # Set up shutdown hook
 
         rospy.spin()  # Keep the node running
 
+        def shutdown_hook(self):
+        
+        rospy.loginfo("Shutting down Base Station Audio System...")
+        if self.input_stream:
+            self.input_stream.stop_stream()
+            self.input_stream.close()
+        if self.output_stream:
+            self.output_stream.stop_stream()
+            self.output_stream.close()
+        if self.audio:
+            self.audio.terminate()
+        rospy.loginfo("Base Station Audio System shutdown complete.")
+
+
 if __name__ == "__main__":
-    base_station = BaseStationAudio()
-    base_station.start()
+    try:
+        base_station = BaseStationAudio()
+        base_station.start()
+    except rospy.ROSInterruptException:
+        rospy.loginfo("Base Station Audio Node interrupted.")
+    except Exception as e:
+        rospy.logerr(f"Unhandled exception: {e}")

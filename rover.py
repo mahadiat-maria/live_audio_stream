@@ -6,7 +6,7 @@ import base64
 class RoverAudio:
     def __init__(self):
         # Audio configuration (same as base station)
-        self.CHUNK = 1024
+        self.CHUNK = 512
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
         self.RATE = 44100
